@@ -33,6 +33,7 @@ repos:
       - id: end-of-file-fixer
       - id: check-yaml
       - id: check-json
+        exclude: ^frontend/tsconfig.*\.json$
       - id: check-toml
       - id: check-added-large-files
         args: [--maxkb=500]
@@ -43,7 +44,7 @@ repos:
     hooks:
       - id: eslint
         name: eslint (frontend)
-        entry: bash -c 'cd frontend && npx eslint . --max-warnings=0'
+        entry: bash -c 'cd frontend && npm ci --silent && npx eslint . --max-warnings=0'
         language: system
         files: ^frontend/src/.*\.(ts|tsx)$
         pass_filenames: false
@@ -52,16 +53,15 @@ repos:
   # These run only on `git push`, not on `git commit`
 
   # ── Python: Type Check (heavy) ──────────────────────
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.16.0
+  - repo: local
     hooks:
       - id: mypy
+        name: mypy (backend)
+        entry: bash -c 'cd backend && uv run mypy src/'
+        language: system
         stages: [pre-push]
-        additional_dependencies:
-          - types-PyYAML
-        args: [--config-file=backend/pyproject.toml]
-        pass_filenames: false
         files: ^backend/src/
+        pass_filenames: false
 
   # ── Python: Tests ───────────────────────────────────
   - repo: local
@@ -98,7 +98,7 @@ repos:
 
       - id: frontend-build
         name: npm run build (frontend)
-        entry: bash -c 'cd frontend && npm run build'
+        entry: bash -c 'cd frontend && npx tsc -b && npx vite build'
         language: system
         stages: [pre-push]
         files: ^frontend/

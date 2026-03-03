@@ -51,6 +51,7 @@ export function AppLayout() {
 
     /** Close drawer on route change (mobile). */
     useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- syncing UI with router state
         setDrawerOpen(false);
     }, [location.pathname]);
 

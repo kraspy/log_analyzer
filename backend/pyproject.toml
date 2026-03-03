@@ -91,4 +91,4 @@ ignore-semiprivate = false
 ignore-private = false
 fail-under = 100
 verbose = 1
-exclude = ["alembic"]
+exclude = ["alembic", "tests", "node_modules", ".tmp", "frontend"]

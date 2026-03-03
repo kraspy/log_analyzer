@@ -49,6 +49,7 @@ def _setup_structlog(config: Config) -> None:
     throughout the script (per monitoring spec).
     """
     # Determine output: file or stdout
+    handler: logging.Handler
     if config.log_file is not None:
         config.log_file.parent.mkdir(parents=True, exist_ok=True)
         handler = logging.FileHandler(config.log_file, encoding="utf-8")

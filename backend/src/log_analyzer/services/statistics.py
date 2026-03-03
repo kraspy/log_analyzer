@@ -76,10 +76,7 @@ class StatisticsService:
             return []
 
         # Total time across all URLs (for time_perc)
-        total_time: float = sum(
-            float(s["time_sum"])
-            for s in raw_stats  # type: ignore[arg-type, misc]
-        )
+        total_time: float = sum(float(str(s["time_sum"])) for s in raw_stats)
 
         # Get response times per path for median calculation
         paths = [str(s["path"]) for s in raw_stats]
