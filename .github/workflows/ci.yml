@@ -1,0 +1,49 @@
+name: CI — Smoke Tests
+
+# ── Minimal smoke checks — full quality gate runs locally via pre-push ──
+# This workflow intentionally runs ONLY smoke tests to save GA minutes.
+# All comprehensive checks (lint, types, docstrings, security) run
+# locally via pre-commit (Tier 1) and pre-push (Tier 2) hooks.
+#
+# NOTE: This workflow is designed to work both in GitHub Actions and
+# locally via `act` (nektos/act). All steps use shell commands instead
+# of marketplace actions for maximum portability.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  smoke:
+    name: Smoke (backend + frontend)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # ── Backend smoke ─────────────────────────────
+      - name: Install uv
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+
+      - name: Set up Python 3.14
+        run: uv python install 3.14
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: uv sync --project .
+
+      - name: Backend smoke tests
+        working-directory: backend
+        run: uv run --project . pytest tests/test_smoke.py -x -q
+
+      # ── Frontend smoke ────────────────────────────
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Frontend type check
+        working-directory: frontend
+        run: npx tsc --noEmit

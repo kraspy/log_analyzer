@@ -1,0 +1,6 @@
+# act configuration — run GitHub Actions locally
+# Install: https://github.com/nektos/act#installation
+# Usage:   act push (or: make ci-local)
+-P ubuntu-latest=catthehacker/ubuntu:act-latest
+--container-architecture linux/amd64
+--action-offline-mode

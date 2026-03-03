@@ -1,0 +1,116 @@
+# Pre-commit hooks — 3-tier CI quality gate (Tier 1: fast checks per commit)
+#
+# Install:   uv run pre-commit install
+#            uv run pre-commit install --hook-type pre-push
+# Run all:   uv run pre-commit run --all-files
+# Run push:  uv run pre-commit run --hook-type pre-push --all-files
+
+repos:
+  # ── Python: Linting & Formatting ────────────────────
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.11.12
+    hooks:
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+        types_or: [python, pyi]
+      - id: ruff-format
+        types_or: [python, pyi]
+
+  # ── Python: Docstring Coverage ──────────────────────
+  - repo: https://github.com/econchick/interrogate
+    rev: 1.7.0
+    hooks:
+      - id: interrogate
+        args: [-c, backend/pyproject.toml]
+        pass_filenames: false
+        files: ^backend/src/
+
+  # ── General: File Quality ───────────────────────────
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-json
+      - id: check-toml
+      - id: check-added-large-files
+        args: [--maxkb=500]
+      - id: detect-private-key
+
+  # ── Frontend: ESLint ────────────────────────────────
+  - repo: local
+    hooks:
+      - id: eslint
+        name: eslint (frontend)
+        entry: bash -c 'cd frontend && npx eslint . --max-warnings=0'
+        language: system
+        files: ^frontend/src/.*\.(ts|tsx)$
+        pass_filenames: false
+
+  # ══ PRE-PUSH HOOKS (Tier 2: comprehensive) ══════════
+  # These run only on `git push`, not on `git commit`
+
+  # ── Python: Type Check (heavy) ──────────────────────
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.16.0
+    hooks:
+      - id: mypy
+        stages: [pre-push]
+        additional_dependencies:
+          - types-PyYAML
+        args: [--config-file=backend/pyproject.toml]
+        pass_filenames: false
+        files: ^backend/src/
+
+  # ── Python: Tests ───────────────────────────────────
+  - repo: local
+    hooks:
+      - id: pytest
+        name: pytest (backend)
+        entry: bash -c 'cd backend && uv run pytest tests/ -x -q'
+        language: system
+        stages: [pre-push]
+        files: ^backend/
+        pass_filenames: false
+
+  # ── Python: Security Audit ──────────────────────────
+  - repo: local
+    hooks:
+      - id: pip-audit
+        name: pip-audit (security)
+        entry: bash -c 'cd backend && uv run pip-audit 2>&1 || true'
+        language: system
+        stages: [pre-push]
+        files: ^backend/pyproject\.toml$
+        pass_filenames: false
+
+  # ── Frontend: Type Check + Build ────────────────────
+  - repo: local
+    hooks:
+      - id: tsc
+        name: tsc --noEmit (frontend)
+        entry: bash -c 'cd frontend && npx tsc --noEmit'
+        language: system
+        stages: [pre-push]
+        files: ^frontend/src/
+        pass_filenames: false
+
+      - id: frontend-build
+        name: npm run build (frontend)
+        entry: bash -c 'cd frontend && npm run build'
+        language: system
+        stages: [pre-push]
+        files: ^frontend/
+        pass_filenames: false
+
+  # ── Frontend: Security Audit ────────────────────────
+  - repo: local
+    hooks:
+      - id: npm-audit
+        name: npm audit (frontend security)
+        entry: bash -c 'cd frontend && npm audit --audit-level=moderate 2>&1 || true'
+        language: system
+        stages: [pre-push]
+        files: ^frontend/package-lock\.json$
+        pass_filenames: false
