@@ -1,0 +1,93 @@
+/* Reset Vite defaults — Ant Design provides its own base styles */
+:root {
+  font-family:
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    Roboto,
+    'Helvetica Neue',
+    Arial,
+    sans-serif;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+}
+
+/* ── Smooth dark-mode transition ──────────────────────── */
+body,
+.ant-layout,
+.ant-layout-header,
+.ant-layout-content,
+.ant-layout-sider,
+.ant-menu,
+.ant-card,
+.ant-drawer-body,
+.ant-drawer-header {
+  transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+}
+
+/* ── Responsive table: horizontal scroll on small screens ── */
+@media (max-width: 768px) {
+  /* Stat cards: stack with gap */
+  .ant-row {
+    gap: 8px 0;
+  }
+
+  /* Table: scroll horizontally, don't crush columns */
+  .ant-table-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .ant-table {
+    min-width: 640px;
+  }
+
+  /* Typography */
+  .ant-typography h3 {
+    font-size: 20px !important;
+  }
+
+  /* Cards: tighter padding */
+  .ant-card-body {
+    padding: 12px !important;
+  }
+
+  /* Tabs: scroll if too many */
+  .ant-tabs-nav {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Descriptions (report metadata): vertical layout */
+  .ant-descriptions-item-label,
+  .ant-descriptions-item-content {
+    padding: 4px 8px !important;
+  }
+}
+
+/* ── Extra-small screens (< 480px) ────────────────────── */
+@media (max-width: 480px) {
+  .ant-table {
+    min-width: 560px;
+  }
+
+  /* Stat cards: full width with smaller font */
+  .ant-statistic-title {
+    font-size: 12px !important;
+  }
+  .ant-statistic-content-value {
+    font-size: 20px !important;
+  }
+}
+
+/* ── Sidebar collapse animation polish ────────────────── */
+.ant-layout-sider {
+  transition: all 0.2s ease;
+}
+
+/* ── Drawer backdrop ──────────────────────────────────── */
+.ant-drawer-mask {
+  backdrop-filter: blur(2px);
+}
