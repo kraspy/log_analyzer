@@ -1,0 +1,74 @@
+# ============================================
+# LOG Analyzer — Docker Compose
+# ============================================
+# Three services:
+#   db       — PostgreSQL 17 (data persistence)
+#   backend  — FastAPI (Python 3.14, API server)
+#   frontend — React (Vite build → Nginx static server + reverse proxy)
+
+services:
+  # ── Database ────────────────────────────────
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: log_analyzer
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme}
+      # Uncomment to expose DB port to host for debugging:
+      # - "5435:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d log_analyzer"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ── Backend ─────────────────────────────────
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+asyncpg://app:${DB_PASSWORD:-changeme}@db:5432/log_analyzer
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      DEBUG: ${DEBUG:-false}
+    ports:
+      - "8001:8000"
+    volumes:
+      - uploads:/app/uploads
+
+  # ── Frontend ────────────────────────────────
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "3001:80"
+
+  # ── CLI (on-demand) ────────────────────────
+  # Usage: docker compose --profile cli run --rm cli --config /config/config.yaml
+  cli:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    profiles:
+      - cli
+    volumes:
+      - ${CLI_LOG_DIR:-./logs}:/logs:ro
+      - ${CLI_REPORT_DIR:-./reports}:/reports
+      - ${CLI_CONFIG:-./config.yaml}:/config/config.yaml:ro
+    entrypoint: ["uv", "run", "python", "-m", "log_analyzer.cli"]
+
+volumes:
+  pg_data:
+    driver: local
+  uploads:
+    driver: local
