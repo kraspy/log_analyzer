@@ -1,6 +1,6 @@
 # ── Build stage ──────────────────────────────────────
 # Uses official uv image with Python 3.14 on Alpine
-FROM ghcr.io/astral-sh/uv:python3.14-alpine AS builder
+FROM ghcr.io/astral-sh/uv:python3.14.3-alpine AS builder
 
 WORKDIR /app
 
@@ -22,7 +22,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev --project backend
 
 # ── Runtime stage ────────────────────────────────────
-FROM ghcr.io/astral-sh/uv:python3.14-alpine
+FROM ghcr.io/astral-sh/uv:python3.14.3-alpine
 
 WORKDIR /app
 

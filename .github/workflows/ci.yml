@@ -28,8 +28,8 @@ jobs:
       - name: Install uv
         run: curl -LsSf https://astral.sh/uv/install.sh | sh
 
-      - name: Set up Python 3.14
-        run: uv python install 3.14
+      - name: Set up Python 3.14.3
+        run: uv python install 3.14.3
 
       - name: Install backend dependencies
         working-directory: backend

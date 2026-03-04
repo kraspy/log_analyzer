@@ -18,15 +18,24 @@
 
 ## 🏗 Стек технологий
 
-| Слой       | Технологии                                                            |
-|------------|-----------------------------------------------------------------------|
-| Backend    | Python 3.14, FastAPI, SQLAlchemy 2.0 (async), Pydantic v2, Alembic   |
-| Frontend   | React 19, TypeScript, Vite 7, Ant Design 6                            |
-| Database   | PostgreSQL 17 Alpine                                                  |
-| AI         | pydantic-ai-slim (OpenAI, DeepSeek) — graceful degradation без ключей |
-| DevOps     | Docker Compose v2, Nginx, GitHub Actions, pre-commit, `uv`, `act`    |
-| Workspace  | `uv workspace` — единый lockfile + `.venv` от корня монорепо         |
-| Quality    | Ruff, Mypy, ESLint, Interrogate, pip-audit, npm audit, Pytest        |
+| Слой       | Технологии                                                              |
+|------------|-------------------------------------------------------------------------|
+| Backend    | Python 3.14.3, FastAPI, SQLAlchemy 2.0 (async), Pydantic v2, Alembic   |
+| Frontend   | React 19, TypeScript, Vite 7, Ant Design 6, Node.js 24.14.0            |
+| Database   | PostgreSQL 17.9 Alpine                                                  |
+| AI         | pydantic-ai-slim (OpenAI, DeepSeek) — graceful degradation без ключей   |
+| DevOps     | Docker 29.1.3, Compose v2, Nginx, GitHub Actions, pre-commit, `uv`     |
+| Workspace  | `uv workspace` — единый lockfile + `.venv` от корня монорепо           |
+| Quality    | Ruff, Mypy, ESLint, Interrogate, pip-audit, npm audit, Pytest          |
+
+### Матрица совместимости
+
+| Компонент  | Протестировано | Минимум  | Примечания                          |
+|------------|---------------|----------|-------------------------------------|
+| Python     | 3.14.3        | 3.13     | `match`, type union syntax          |
+| PostgreSQL | 17.9          | 16       | asyncpg, без PG-specific SQL        |
+| Node.js    | 24.14.0       | 22 LTS   | Vite 7 требует ≥ 22                 |
+| Docker     | 29.1.3        | 24.x     | Compose v2                          |
 
 ---
 
@@ -45,7 +54,7 @@
 | Отчёт `report-YYYY.MM.DD.html` (дата = дата лога) | ✅ | `report_renderer.py` — `string.Template`, `$table_json` |
 | `REPORT_SIZE` URL'ов с наибольшим `time_sum` | ✅ | Сортировка по `time_sum` desc → `result[:report_size]`, дефолт 1000 |
 | `REPORT_DIR` для готовых отчётов | ✅ | YAML-ключ `REPORT_DIR`, auto-create с `mkdir(parents=True)` |
-| jQuery Tablesorter (offline) | ✅ | jQuery 3.7.1 + tablesorter 2.31.3 встроены inline в HTML |
+| jQuery Tablesorter (offline) | ✅ | jQuery 3.7.1 + Tablesorter 2.31.3 встроены inline в HTML |
 | HTML-отчёт через `string.Template` (`$table_json`) | ✅ | `report_renderer.py` — подстановка JSON, self-contained файл |
 | Парсинг `combined` формата Nginx | ✅ | `CombinedLogParser` — regex, generator, O(1) memory |
 | CLI-режим: `python -m log_analyzer.cli` | ✅ | Standalone CLI без БД: `--config config.yaml` → HTML-отчёт |

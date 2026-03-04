@@ -2,14 +2,14 @@
 # LOG Analyzer — Docker Compose
 # ============================================
 # Three services:
-#   db       — PostgreSQL 17 (data persistence)
-#   backend  — FastAPI (Python 3.14, API server)
+#   db       — PostgreSQL 17.9 (data persistence)
+#   backend  — FastAPI (Python 3.14.3, API server)
 #   frontend — React (Vite build → Nginx static server + reverse proxy)
 
 services:
   # ── Database ────────────────────────────────
   db:
-    image: postgres:17-alpine
+    image: postgres:17.9-alpine
     restart: unless-stopped
     volumes:
       - pg_data:/var/lib/postgresql/data
