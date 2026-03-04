@@ -5,14 +5,37 @@ per-URL stat objects (as required by the HW specification).
 
 The rendered page uses embedded JavaScript to dynamically build
 an HTML table from the JSON data and provides client-side
-column sorting via ``jquery.tablesorter`` (loaded from CDN).
+column sorting via ``jquery.tablesorter`` (bundled inline for
+offline use — no CDN dependency).
 """
 
 from pathlib import Path
 from string import Template
 
 # ---------------------------------------------------------------------------
-# HTML template — jQuery + tablesorter for interactive sorting.
+# Load vendor JS once at import time (jquery + tablesorter).
+# These are bundled in cli/vendor/ so reports work fully offline.
+# ---------------------------------------------------------------------------
+_VENDOR_DIR = Path(__file__).parent / "vendor"
+
+
+def _load_vendor(filename: str) -> str:
+    """Load a vendored JavaScript file as a string.
+
+    Args:
+        filename: Name of the JS file in the vendor directory.
+
+    Returns:
+        The file contents as a string.
+    """
+    return (_VENDOR_DIR / filename).read_text(encoding="utf-8")
+
+
+_JQUERY_JS = _load_vendor("jquery.min.js")
+_TABLESORTER_JS = _load_vendor("tablesorter.min.js")
+
+# ---------------------------------------------------------------------------
+# HTML template — jQuery + tablesorter inlined for offline use.
 # $table_json is substituted with a JSON array of per-URL rows.
 # ---------------------------------------------------------------------------
 _REPORT_TEMPLATE = Template("""\
@@ -56,8 +79,14 @@ _REPORT_TEMPLATE = Template("""\
 </thead>
 <tbody></tbody>
 </table>
-<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.tablesorter/2.31.3/js/jquery.tablesorter.min.js"></script>
+<script>
+/* jQuery — inlined for offline use */
+$jquery_js
+</script>
+<script>
+/* jQuery Tablesorter — inlined for offline use */
+$tablesorter_js
+</script>
 <script>
 /* Data injected from Python via string.Template */
 var table_json = $table_json;
@@ -79,7 +108,7 @@ table_json.forEach(function(row) {
 });
 
 /* Activate tablesorter */
-$$(function(){ $$('#report').tablesorter(); });
+$$$$(function(){ $$$$('#report').tablesorter(); });
 </script>
 </body>
 </html>
@@ -91,10 +120,11 @@ def render_report(
     report_date: str,
     output_path: Path,
 ) -> Path:
-    """Render per-URL statistics to an HTML file.
+    """Render per-URL statistics to a self-contained HTML file.
 
-    Uses ``string.Template`` with ``$$table_json`` substitution,
-    as specified in the HW requirements.
+    Uses ``string.Template`` with ``$table_json`` substitution,
+    as specified in the HW requirements. jQuery and tablesorter
+    are embedded inline — the report works fully offline.
 
     Args:
         table_json: JSON-serialized array of per-URL stat objects.
@@ -109,6 +139,8 @@ def render_report(
     html = _REPORT_TEMPLATE.substitute(
         report_date=report_date,
         table_json=table_json,
+        jquery_js=_JQUERY_JS,
+        tablesorter_js=_TABLESORTER_JS,
     )
 
     output_path.write_text(html, encoding="utf-8")
