@@ -47,16 +47,22 @@ class Config:
     ts_file: Path | None = None
 
 
-def load_config(config_path: Path | None) -> Config:
+def load_config(config_path: Path | None, *, explicit: bool = True) -> Config:
     """Load config from a YAML file, falling back to defaults.
 
     If *config_path* is ``None``, returns the default ``Config``.
 
-    **Requirement 3**: exits with code 1 when the file is missing
-    or fails to parse (YAML syntax error, permission denied, etc.).
+    When *explicit* is ``True`` (user explicitly passed ``--config``),
+    a missing file is a hard error (``sys.exit(1)``).  When ``False``
+    (default path from argparse), a missing file silently falls back
+    to built-in defaults.
+
+    **Requirement 3**: if the config file does not exist or cannot be
+    parsed, the script exits with an error.
 
     Args:
         config_path: Path to the YAML config file, or ``None`` for defaults.
+        explicit: Whether the user explicitly provided the path.
 
     Returns:
         Populated ``Config`` instance.
@@ -64,8 +70,10 @@ def load_config(config_path: Path | None) -> Config:
     if config_path is None:
         return Config()
 
-    # Requirement 3: file MUST exist — exit on FileNotFoundError
+    # If the default config path doesn't exist, silently use defaults
     if not config_path.exists():
+        if not explicit:
+            return Config()
         print(
             f"ERROR: config file not found: {config_path}",
             file=sys.stderr,

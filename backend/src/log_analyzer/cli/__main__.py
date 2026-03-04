@@ -243,13 +243,14 @@ def main() -> None:
     arg_parser.add_argument(
         "--config",
         type=Path,
-        default=None,
-        help="Path to YAML config file (optional, defaults used otherwise).",
+        default=Path("./config/config.yaml"),
+        help="Path to YAML config file (default: ./config/config.yaml).",
     )
     args = arg_parser.parse_args()
 
-    # Load config (exits on error — Req 3)
-    config = load_config(args.config)
+    # Detect if user explicitly passed --config (vs argparse default)
+    config_explicit = "--config" in sys.argv
+    config = load_config(args.config, explicit=config_explicit)
 
     # Setup structlog (Req M1)
     _setup_structlog(config)
