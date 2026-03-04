@@ -6,12 +6,12 @@ uses pre-sorted data from the repository.
 """
 
 import math
-import statistics as pystats
 
 import structlog
 
 from log_analyzer.domain.interfaces import LogRepository
 from log_analyzer.domain.models import Statistics, UrlStat
+from log_analyzer.services.url_stats import compute_url_stats
 
 log = structlog.get_logger()
 
@@ -70,51 +70,24 @@ class StatisticsService:
         )
 
     async def _compute_url_stats(self, log_file_id: int, total_requests: int) -> list[UrlStat]:
-        """Compute per-URL statistics with medians and percentages."""
+        """Compute per-URL statistics via shared core.
+
+        Loads response times from DB into the same dict shape
+        used by CLI, then delegates to the unified calculator.
+        """
+        # Get response times grouped by path from DB
         raw_stats = await self._repo.get_url_stats(log_file_id)
         if not raw_stats:
             return []
 
-        # Total time across all URLs (for time_perc)
-        total_time: float = sum(float(str(s["time_sum"])) for s in raw_stats)
-
-        # Get response times per path for median calculation
         paths = [str(s["path"]) for s in raw_stats]
         rt_by_path = await self._repo.get_response_times_by_path(
             log_file_id,
             paths,
         )
 
-        result: list[UrlStat] = []
-        for s in raw_stats:
-            path = str(s["path"])
-            count = int(s["count"])  # type: ignore[call-overload]
-            time_sum = float(s["time_sum"])  # type: ignore[arg-type]
-            time_avg = float(s["time_avg"])  # type: ignore[arg-type]
-            time_max = float(s["time_max"])  # type: ignore[arg-type]
-
-            # Median from sorted response times
-            path_times = rt_by_path.get(path, [])
-            time_med = pystats.median(path_times) if path_times else 0.0
-
-            # Percentages
-            count_perc = round(count / total_requests * 100, 3) if total_requests else 0.0
-            time_perc = round(time_sum / total_time * 100, 3) if total_time else 0.0
-
-            result.append(
-                UrlStat(
-                    url=path,
-                    count=count,
-                    count_perc=count_perc,
-                    time_sum=round(time_sum, 3),
-                    time_perc=time_perc,
-                    time_avg=round(time_avg, 3),
-                    time_max=round(time_max, 3),
-                    time_med=round(time_med, 3),
-                )
-            )
-
-        return result
+        # Delegate to shared pure function (same as CLI)
+        return compute_url_stats(rt_by_path, total_requests)
 
 
 def _calculate_percentiles(

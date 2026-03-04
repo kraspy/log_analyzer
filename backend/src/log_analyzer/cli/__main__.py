@@ -22,10 +22,10 @@ Monitoring:
 """
 
 import argparse
+import dataclasses
 import gzip
 import json
 import logging
-import statistics as stats_module
 import sys
 from collections import defaultdict
 from collections.abc import Iterator
@@ -39,6 +39,7 @@ from log_analyzer.cli.log_finder import find_latest_log
 from log_analyzer.cli.report_renderer import render_report
 from log_analyzer.domain.models import LogEntry
 from log_analyzer.infrastructure.parsers.combined import CombinedLogParser
+from log_analyzer.services.url_stats import compute_url_stats
 
 
 def _setup_structlog(config: Config) -> None:
@@ -80,43 +81,8 @@ def _setup_structlog(config: Config) -> None:
     )
 
 
-def _compute_url_stats(
-    entries: dict[str, list[float]],
-    total_requests: int,
-    report_size: int,
-) -> list[dict[str, object]]:
-    """Compute per-URL metrics from in-memory data.
-
-    Args:
-        entries: Mapping of URL → list of request_time values.
-        total_requests: Total number of parsed requests.
-        report_size: Max URLs to include in report.
-
-    Returns:
-        List of stat dicts sorted by time_sum descending,
-        limited to *report_size* entries.
-    """
-    total_time = sum(sum(times) for times in entries.values())
-
-    result: list[dict[str, object]] = []
-    for url, times in entries.items():
-        time_sum = sum(times)
-        count = len(times)
-        result.append(
-            {
-                "url": url,
-                "count": count,
-                "count_perc": round(count / total_requests * 100, 3) if total_requests else 0,
-                "time_sum": round(time_sum, 3),
-                "time_perc": round(time_sum / total_time * 100, 3) if total_time else 0,
-                "time_avg": round(time_sum / count, 3) if count else 0,
-                "time_max": round(max(times), 3) if times else 0,
-                "time_med": round(stats_module.median(times), 3) if times else 0,
-            }
-        )
-
-    result.sort(key=lambda s: float(s.get("time_sum", 0)), reverse=True)  # type: ignore[arg-type]
-    return result[:report_size]
+# NOTE: _compute_url_stats was extracted to services/url_stats.py
+# Both CLI and Web now use the same compute_url_stats() function.
 
 
 def _parse_log_lines(
@@ -190,8 +156,9 @@ def _run(config: Config) -> int:
         total_lines += 1
         if entry is not None:
             parsed_lines += 1
-            request_time = entry.request_time if entry.request_time is not None else 0.0
-            url_times[entry.path].append(request_time)
+            # Only include real timing data; None means format lacks request_time
+            if entry.request_time is not None:
+                url_times[entry.path].append(entry.request_time)
 
     error_lines = total_lines - parsed_lines
     log.info(
@@ -213,12 +180,13 @@ def _run(config: Config) -> int:
             )
             return 1
 
-    # ── 5. Compute per-URL statistics ────────────────────────
-    url_stats = _compute_url_stats(url_times, parsed_lines, config.report_size)
+    # ── 5. Compute per-URL statistics (shared core) ──────────
+    url_stats = compute_url_stats(url_times, parsed_lines, config.report_size)
     log.debug("url_stats_computed", count=len(url_stats))
 
     # ── 6. Render HTML report ($table_json) ──────────────────
-    table_json = json.dumps(url_stats, ensure_ascii=False)
+    stats_dicts = [dataclasses.asdict(s) for s in url_stats]
+    table_json = json.dumps(stats_dicts, ensure_ascii=False)
     render_report(table_json, report_date, report_path)
     log.info("report_saved", path=str(report_path))
 
