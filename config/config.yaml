@@ -1,0 +1,22 @@
+# Log Analyzer CLI — default configuration
+# This file is loaded automatically when running:
+#   python -m log_analyzer.cli
+# Override with: python -m log_analyzer.cli --config /path/to/other.yaml
+
+# Directory containing Nginx access logs
+LOG_DIR: ./log/nginx
+
+# Directory where HTML reports are saved
+REPORT_DIR: ./reports
+
+# Number of URLs with highest time_sum in the report
+REPORT_SIZE: 1000
+
+# Fraction of unparseable lines that triggers exit (0.0–1.0)
+ERROR_THRESHOLD: 0.2
+
+# Application log file (comment out to log to stdout)
+# LOG_FILE: ./log/log_analyzer.log
+
+# Heartbeat timestamp file (comment out to disable)
+# TS_FILE: ./log/log_analyzer.ts
