@@ -5,14 +5,28 @@
 
 ## Оглавление
 
-- [Возможности](#-возможности)
 - [Стек технологий](#-стек-технологий)
-- [Быстрый старт](#-быстрый-старт)
-- [CLI-режим](#-cli-режим)
+- [Возможности](#-возможности)
 - [Архитектура](#-архитектура)
 - [API Reference](#-api-reference)
+- [Makefile](#-makefile)
+- [CLI-режим](#-cli-режим)
+- [Web-режим](#-web-режим)
 - [Качество кода и CI](#-качество-кода-и-ci)
-- [ADR (Architecture Decision Records)](#-adr-architecture-decision-records)
+
+---
+
+## 🏗 Стек технологий
+
+| Слой       | Технологии                                                            |
+|------------|-----------------------------------------------------------------------|
+| Backend    | Python 3.14, FastAPI, SQLAlchemy 2.0 (async), Pydantic v2, Alembic   |
+| Frontend   | React 19, TypeScript, Vite 7, Ant Design 6                            |
+| Database   | PostgreSQL 17 Alpine                                                  |
+| AI         | pydantic-ai-slim (OpenAI, DeepSeek) — graceful degradation без ключей |
+| DevOps     | Docker Compose v2, Nginx, GitHub Actions, pre-commit, `uv`, `act`    |
+| Workspace  | `uv workspace` — единый lockfile + `.venv` от корня монорепо         |
+| Quality    | Ruff, Mypy, ESLint, Interrogate, pip-audit, npm audit, Pytest        |
 
 ---
 
@@ -31,7 +45,7 @@
 | Отчёт `report-YYYY.MM.DD.html` (дата = дата лога) | ✅ | `report_renderer.py` — `string.Template`, `$table_json` |
 | `REPORT_SIZE` URL'ов с наибольшим `time_sum` | ✅ | Сортировка по `time_sum` desc → `result[:report_size]`, дефолт 1000 |
 | `REPORT_DIR` для готовых отчётов | ✅ | YAML-ключ `REPORT_DIR`, auto-create с `mkdir(parents=True)` |
-| jQuery Tablesorter (offline) | ✅ | jQuery 4.0.0 + tablesorter 2.31.3 встроены inline в HTML |
+| jQuery Tablesorter (offline) | ✅ | jQuery 3.7.1 + tablesorter 2.31.3 встроены inline в HTML |
 | HTML-отчёт через `string.Template` (`$table_json`) | ✅ | `report_renderer.py` — подстановка JSON, self-contained файл |
 | Парсинг `combined` формата Nginx | ✅ | `CombinedLogParser` — regex, generator, O(1) memory |
 | CLI-режим: `python -m log_analyzer.cli` | ✅ | Standalone CLI без БД: `--config config.yaml` → HTML-отчёт |
@@ -56,78 +70,6 @@
 - **Тёмная тема** — toggle в header, `localStorage`, плавная анимация
 - **Responsive** — адаптивная сетка, auto-collapse sidebar
 - **Code Splitting** — `React.lazy()` + `manualChunks` (react 16KB, antd 323KB, query 7.5KB)
-
----
-
-## 🏗 Стек технологий
-
-| Слой       | Технологии                                                            |
-|------------|-----------------------------------------------------------------------|
-| Backend    | Python 3.14, FastAPI, SQLAlchemy 2.0 (async), Pydantic v2, Alembic   |
-| Frontend   | React 19, TypeScript, Vite 7, Ant Design 6                            |
-| Database   | PostgreSQL 17 Alpine                                                  |
-| AI         | pydantic-ai-slim (OpenAI, DeepSeek) — graceful degradation без ключей |
-| DevOps     | Docker Compose v2, Nginx, GitHub Actions, pre-commit, `uv`, `act`    |
-| Workspace  | `uv workspace` — единый lockfile + `.venv` от корня монорепо         |
-| Quality    | Ruff, Mypy, ESLint, Interrogate, pip-audit, npm audit, Pytest        |
-
----
-
-## ⚡️ Быстрый старт
-
-**Требования:** Docker + Docker Compose
-
-```bash
-git clone https://github.com/kraspy/log-analyzer.git && cd log-analyzer
-cp .env.example .env          # Отредактируй DB_PASSWORD, опционально AI-ключи
-docker compose up --build -d
-```
-
-| Сервис          | URL                          |
-|-----------------|------------------------------|
-| Frontend        | http://localhost:3001         |
-| Backend API     | http://localhost:8001/health  |
-| Swagger / ReDoc | http://localhost:8001/docs    |
-
-```bash
-# .env (пример)
-DB_PASSWORD=changeme            # Обязательно
-OPENAI_API_KEY=sk-...           # Опционально (AI)
-DEEPSEEK_API_KEY=sk-...         # Опционально (AI)
-```
-
-> AI-функции работают без ключей — приложение отображает fallback-сообщения.
-
----
-
-## 🖥 CLI-режим
-
-Standalone CLI без Docker и БД — парсинг лога → HTML-отчёт:
-
-```bash
-# с пользовательским конфигом:
-uv run --project backend python -m log_analyzer.cli --config /path/to/config.yaml
-
-# без --config используется дефолт: ./config/config.yaml
-# если файл не найден — используются встроенные дефолты
-uv run --project backend python -m log_analyzer.cli
-```
-
-```yaml
-# config.yaml (все поля опциональны — переопределяют дефолты)
-LOG_DIR: /var/log/nginx        # default: /var/log/nginx
-REPORT_DIR: ./reports          # default: ./reports
-REPORT_SIZE: 1000              # default: 1000
-ERROR_THRESHOLD: 0.2           # default: нет порога
-LOG_FILE: ./log_analyzer.log   # default: stdout
-TS_FILE: ./log_analyzer.ts     # default: нет
-```
-
-**Через Docker Compose** (profile `cli`):
-
-```bash
-docker compose --profile cli run --rm cli --config /config/config.yaml
-```
 
 ---
 
@@ -222,6 +164,86 @@ Domain  ←──  Services  ←──  Infrastructure / API
 
 ---
 
+## 🛠 Makefile
+
+```bash
+make lint           # Ruff lint
+make format         # Ruff auto-format
+make typecheck      # Mypy strict
+make test           # Pytest
+make test-cov       # Pytest + coverage
+make docstrings     # Interrogate (≥ 80%)
+make security       # pip-audit + npm audit
+make frontend-lint  # ESLint
+make frontend-check # TSC + build
+make check          # Backend: lint + types + test
+make check-all      # Full pre-push (оба стека)
+make ci-local       # GA via act
+make hooks          # Установка git hooks
+make docker-up      # Docker Compose up
+make docker-down    # Docker Compose down
+```
+
+---
+
+## 🖥 CLI-режим
+
+Standalone CLI без Docker и БД — парсинг лога → HTML-отчёт:
+
+```bash
+# с пользовательским конфигом:
+uv run --project backend python -m log_analyzer.cli --config /path/to/config.yaml
+
+# без --config используется дефолт: ./config/config.yaml
+# если файл не найден — используются встроенные дефолты
+uv run --project backend python -m log_analyzer.cli
+```
+
+```yaml
+# config.yaml (все поля опциональны — переопределяют дефолты)
+LOG_DIR: /var/log/nginx        # default: /var/log/nginx
+REPORT_DIR: ./reports          # default: ./reports
+REPORT_SIZE: 1000              # default: 1000
+ERROR_THRESHOLD: 0.2           # default: нет порога
+LOG_FILE: ./log_analyzer.log   # default: stdout
+TS_FILE: ./log_analyzer.ts     # default: нет
+```
+
+**Через Docker Compose** (profile `cli`):
+
+```bash
+docker compose --profile cli run --rm cli --config /config/config.yaml
+```
+
+---
+
+## 🌐 Web-режим
+
+**Требования:** Docker + Docker Compose
+
+```bash
+git clone https://github.com/kraspy/log-analyzer.git && cd log-analyzer
+cp .env.example .env          # Отредактируй DB_PASSWORD, опционально AI-ключи
+docker compose up --build -d
+```
+
+| Сервис          | URL                          |
+|-----------------|------------------------------|
+| Frontend        | http://localhost:3001         |
+| Backend API     | http://localhost:8001/health  |
+| Swagger / ReDoc | http://localhost:8001/docs    |
+
+```bash
+# .env (пример)
+DB_PASSWORD=changeme            # Обязательно
+OPENAI_API_KEY=sk-...           # Опционально (AI)
+DEEPSEEK_API_KEY=sk-...         # Опционально (AI)
+```
+
+> AI-функции работают без ключей — приложение отображает fallback-сообщения.
+
+---
+
 ## 🔒 Качество кода и CI
 
 ### 3-Tier CI Strategy (Local-First)
@@ -300,42 +322,6 @@ make test-cov     # + coverage (≥ 55%)
 | `test_log_finder.py`    | 10     | Поиск свежего лога (CLI)                  |
 | `test_config.py`        | 5      | Загрузка YAML-конфигурации (CLI)          |
 | `test_smoke.py`         | 2      | Health + OpenAPI (smoke, запускается в GA) |
-
----
-
-## 📐 ADR (Architecture Decision Records)
-
-### Ключевые архитектурные решения
-
-1. **Clean Architecture** — 4 слоя с Dependency Rule; Domain не зависит от фреймворков
-2. **Callable Injection** — сервисы используют `Callable[..., Any]` вместо конкретных AI-фреймворков
-3. **Local-First CI** — 3-tier: pre-commit → pre-push → GA smoke (экономия ~70 % GHA minutes)
-4. **CLI без БД** — in-memory per-URL статистика, полностью автономный модуль
-5. **Streaming everywhere** — CSV export через `StreamingResponse`, AI chat через SSE
-
----
-
-
-
-### Makefile (справочник)
-
-```bash
-make lint           # Ruff lint
-make format         # Ruff auto-format
-make typecheck      # Mypy strict
-make test           # Pytest
-make test-cov       # Pytest + coverage
-make docstrings     # Interrogate (≥ 80%)
-make security       # pip-audit + npm audit
-make frontend-lint  # ESLint
-make frontend-check # TSC + build
-make check          # Backend: lint + types + test
-make check-all      # Full pre-push (оба стека)
-make ci-local       # GA via act
-make hooks          # Установка git hooks
-make docker-up      # Docker Compose up
-make docker-down    # Docker Compose down
-```
 
 ---
 
