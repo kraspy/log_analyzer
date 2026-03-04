@@ -48,6 +48,9 @@ def find_latest_log(log_dir: Path) -> LogFileInfo | None:
     """
     latest: LogFileInfo | None = None
 
+    if not log_dir.is_dir():
+        return None
+
     with os.scandir(log_dir) as entries:
         for entry in entries:
             if not entry.is_file():
