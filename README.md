@@ -39,6 +39,10 @@
 | `.ts` heartbeat | ✅ | Запись timestamp при успешном завершении |
 | `--config` с дефолтным путём | ✅ | Дефолт `./config/config.yaml`; явный `--config` + несуществующий файл → `sys.exit(1)` |
 | Файл не существует / не парсится → ошибка | ✅ | `sys.exit(1)` + сообщение; дефолтный путь без файла → silent fallback |
+| Конфиг не глобальный — передаётся аргументом | ✅ | `main() → _setup_structlog(config) → _run(config)`, нет `global` |
+| JSON-логи через structlog (debug/info/error) | ✅ | `JSONRenderer()`, путь из конфига или stdout |
+| Неожиданные ошибки → лог с трейсбеком | ✅ | `except Exception: log.error("unexpected_error", exc_info=True)` |
+| Порог ошибок парсинга → лог + `sys.exit(1)` | ✅ | `error_ratio > config.error_threshold` → `log.error()` + exit |
 | Идемпотентность | ✅ | Если `report-{date}.html` уже есть → skip |
 | Тесты | ✅ | 40 unit tests (pytest), 10 тестов на log_finder |
 
