@@ -13,7 +13,6 @@
 - [API Reference](#-api-reference)
 - [Качество кода и CI](#-качество-кода-и-ci)
 - [ADR (Architecture Decision Records)](#-adr-architecture-decision-records)
-- [Документация](#-документация)
 
 ---
 
@@ -21,16 +20,27 @@
 
 ### Реализовано по Заданию
 
-| Требование                                 | Статус | Реализация                                                         |
-|--------------------------------------------|--------|--------------------------------------------------------------------|
-| Парсинг `combined` формата Nginx           | ✅     | `CombinedLogParser` — regex, generator, O(1) memory                |
-| Per-URL статистика (count, time_avg, time_med и др.) | ✅ | `GET /api/stats/{id}` → `url_stats[]` (8 метрик, лимит 1000 URL)  |
-| CLI-режим: `python -m log_analyzer.cli`    | ✅     | Standalone CLI без БД: `--config config.yaml` → HTML-отчёт         |
-| Поиск свежего лога по дате (`os.scandir`)  | ✅     | `log_finder.py` — один проход, regex, O(1) memory                  |
-| HTML-отчёт (`string.Template`)             | ✅     | `report_renderer.py` — сортировка по колонкам                      |
-| Порог ошибок парсинга                      | ✅     | `ERROR_THRESHOLD` — проверка в конце, `sys.exit(1)` при превышении |
-| `.ts` heartbeat                            | ✅     | Запись timestamp при успешном завершении                            |
-| Тесты                                      | ✅     | 40+ unit tests (pytest), coverage ≥ 55 %                           |
+| Требование | Статус | Реализация |
+|---|---|---|
+| Шаблон имени `nginx-access-ui.log-YYYYMMDD[.gz]` | ✅ | Regex `^nginx-access-ui\.log-(?P<date>\d{8})(?P<ext>\.gz)?$` |
+| Plain и gzip логи | ✅ | `gzip.open` / `open` по расширению, автораспаковка при upload |
+| Поиск свежего лога по дате в имени (не mtime) | ✅ | `log_finder.py` — `os.scandir`, один проход, O(1) memory |
+| Игнорирование логов других сервисов | ✅ | Regex матчит только `nginx-access-ui.log-*`, остальное пропускается |
+| Нет логов — не ошибка | ✅ | `log.info("no_logs_found"); return` — чистый выход без `sys.exit(1)` |
+| 7 метрик per-URL (`count`, `count_perc`, `time_sum`, `time_perc`, `time_avg`, `time_max`, `time_med`) | ✅ | CLI: `statistics.median()`, Web: SQL `SUM/AVG/MAX` + `statistics.median()` |
+| Отчёт `report-YYYY.MM.DD.html` (дата = дата лога) | ✅ | `report_renderer.py` — `string.Template`, `$table_json` |
+| `REPORT_SIZE` URL'ов с наибольшим `time_sum` | ✅ | Сортировка по `time_sum` desc → `result[:report_size]`, дефолт 1000 |
+| `REPORT_DIR` для готовых отчётов | ✅ | YAML-ключ `REPORT_DIR`, auto-create с `mkdir(parents=True)` |
+| jQuery Tablesorter (offline) | ✅ | jQuery 4.0.0 + tablesorter 2.31.3 встроены inline в HTML |
+| HTML-отчёт через `string.Template` (`$table_json`) | ✅ | `report_renderer.py` — подстановка JSON, self-contained файл |
+| Парсинг `combined` формата Nginx | ✅ | `CombinedLogParser` — regex, generator, O(1) memory |
+| CLI-режим: `python -m log_analyzer.cli` | ✅ | Standalone CLI без БД: `--config config.yaml` → HTML-отчёт |
+| Порог ошибок парсинга | ✅ | `ERROR_THRESHOLD` — `sys.exit(1)` при превышении |
+| `.ts` heartbeat | ✅ | Запись timestamp при успешном завершении |
+| `--config` с дефолтным путём | ✅ | Дефолт `./config/config.yaml`; явный `--config` + несуществующий файл → `sys.exit(1)` |
+| Файл не существует / не парсится → ошибка | ✅ | `sys.exit(1)` + сообщение; дефолтный путь без файла → silent fallback |
+| Идемпотентность | ✅ | Если `report-{date}.html` уже есть → skip |
+| Тесты | ✅ | 40 unit tests (pytest), 10 тестов на log_finder |
 
 ### Дополнительные фичи
 
@@ -91,11 +101,12 @@ DEEPSEEK_API_KEY=sk-...         # Опционально (AI)
 Standalone CLI без Docker и БД — парсинг лога → HTML-отчёт:
 
 ```bash
-# из корня проекта (без --config используются значения по умолчанию):
-uv run --project backend python -m log_analyzer.cli
-
 # с пользовательским конфигом:
 uv run --project backend python -m log_analyzer.cli --config /path/to/config.yaml
+
+# без --config используется дефолт: ./config/config.yaml
+# если файл не найден — используются встроенные дефолты
+uv run --project backend python -m log_analyzer.cli
 ```
 
 ```yaml
@@ -144,11 +155,6 @@ log_analyzer/                   # uv workspace root
 │   │   └── api/client.ts       # Типизированный API-клиент
 │   ├── nginx.conf              # Reverse proxy + SSE support
 │   └── Dockerfile              # Multi-stage: node build → nginx
-├── docs/
-│   ├── plans/                  # ADR (design documents)
-│   ├── architecture.md
-│   ├── features.md
-│   └── api-reference.md
 ├── docker-compose.yml          # 3 сервиса + CLI profile
 ├── .pre-commit-config.yaml     # 2-tier hooks (commit + push)
 ├── .github/workflows/ci.yml   # Tier 3: smoke tests
@@ -208,7 +214,7 @@ Domain  ←──  Services  ←──  Infrastructure / API
 | `POST`   | `/api/ai/summary`      | AI суммаризация                   |
 | `POST`   | `/api/ai/chat`         | SSE стриминг чат                  |
 
-Подробнее → [docs/api-reference.md](docs/api-reference.md)
+Подробнее → Swagger UI: http://localhost:8001/docs
 
 ---
 
@@ -295,13 +301,6 @@ make test-cov     # + coverage (≥ 55%)
 
 ## 📐 ADR (Architecture Decision Records)
 
-Проектные решения зафиксированы в директории [`docs/plans/`](docs/plans/):
-
-| ADR | Дата | Статус | Описание |
-|-----|------|--------|----------|
-| [log-analyzer-design](docs/plans/2026-03-02-log-analyzer-design.md) | 2026-03-02 | Draft | Полный дизайн приложения: стек, Clean Architecture, Docker Compose, CI, фазы реализации |
-| [cli-module-design](docs/plans/2026-03-02-cli-module-design.md) | 2026-03-02 | Approved | CLI-модуль: standalone entrypoint без БД, `os.scandir`, `string.Template`, data flow |
-
 ### Ключевые архитектурные решения
 
 1. **Clean Architecture** — 4 слоя с Dependency Rule; Domain не зависит от фреймворков
@@ -312,16 +311,7 @@ make test-cov     # + coverage (≥ 55%)
 
 ---
 
-## 📚 Документация
 
-| Документ | Описание |
-|----------|----------|
-| [architecture.md](docs/architecture.md) | Диаграммы, потоки данных, dependency rule |
-| [api-reference.md](docs/api-reference.md) | Все эндпоинты с примерами запросов/ответов |
-| [features.md](docs/features.md) | Полный список фич (backend + frontend + CLI) |
-| [testing.md](docs/testing.md) | Тест-стратегия, команды, coverage |
-
----
 
 ### Makefile (справочник)
 
