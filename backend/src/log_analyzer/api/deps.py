@@ -82,7 +82,7 @@ async def get_ai_service(
     """
     agent = None
     if settings.openai_api_key:
-        agent = create_ai_agent("openai:gpt-5.2-nano")
+        agent = create_ai_agent("openai:gpt-5-mini")
     elif settings.deepseek_api_key:
         agent = create_ai_agent("deepseek:deepseek-chat")
 
