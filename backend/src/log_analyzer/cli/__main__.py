@@ -143,7 +143,7 @@ def _parse_log_lines(
             yield parser.parse_line(line, path.name, line_number)
 
 
-def _run(config: Config) -> None:
+def _run(config: Config) -> int:
     """Execute the main processing pipeline.
 
     Separated from ``main()`` so the global exception handler can
@@ -151,6 +151,9 @@ def _run(config: Config) -> None:
 
     Args:
         config: Application configuration (passed, never global — Req 5).
+
+    Returns:
+        Exit code: 0 for success, 1 for error threshold exceeded.
     """
     log = structlog.get_logger()
 
@@ -208,7 +211,7 @@ def _run(config: Config) -> None:
                 error_ratio=round(error_ratio * 100, 1),
                 threshold=round(config.error_threshold * 100, 1),
             )
-            sys.exit(1)
+            return 1
 
     # ── 5. Compute per-URL statistics ────────────────────────
     url_stats = _compute_url_stats(url_times, parsed_lines, config.report_size)
@@ -228,10 +231,14 @@ def _run(config: Config) -> None:
         log.info("heartbeat_updated", ts_file=str(config.ts_file))
 
     log.info("done")
+    return 0
 
 
 def main() -> None:
     """CLI entrypoint — parse args, configure structlog, run pipeline.
+
+    This is the ONLY place where ``sys.exit()`` is called.
+    All other functions return values or raise exceptions.
 
     Wraps ``_run()`` in a global exception handler so that any
     unexpected error (bugs, disk full, Ctrl+C, etc.) is logged
@@ -250,7 +257,14 @@ def main() -> None:
 
     # Detect if user explicitly passed --config (vs argparse default)
     config_explicit = "--config" in sys.argv
-    config = load_config(args.config, explicit=config_explicit)
+
+    # Load config — errors are caught here (Req 3).
+    # sys.exit only in main(), never in library code.
+    try:
+        config = load_config(args.config, explicit=config_explicit)
+    except (FileNotFoundError, ValueError) as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        sys.exit(1)
 
     # Setup structlog (Req M1)
     _setup_structlog(config)
@@ -258,7 +272,7 @@ def main() -> None:
     log = structlog.get_logger()
 
     try:
-        _run(config)
+        exit_code = _run(config)
     except KeyboardInterrupt:
         log.error("interrupted")
         sys.exit(130)
@@ -266,6 +280,8 @@ def main() -> None:
         # Requirement M2: unexpected errors → log with traceback
         log.error("unexpected_error", exc_info=True)
         sys.exit(1)
+
+    sys.exit(exit_code)
 
 
 if __name__ == "__main__":

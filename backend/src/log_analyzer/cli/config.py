@@ -5,13 +5,12 @@ via ``--config`` CLI argument. If no config is provided,
 default values are used.
 
 **Requirement 3**: if the config file does not exist or cannot be
-parsed, the script exits with an error.
+parsed, the caller (``main()``) catches the error and exits.
 
 **Requirement 4**: file values override defaults; missing keys
 fall back to defaults (merge semantics).
 """
 
-import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -53,12 +52,9 @@ def load_config(config_path: Path | None, *, explicit: bool = True) -> Config:
     If *config_path* is ``None``, returns the default ``Config``.
 
     When *explicit* is ``True`` (user explicitly passed ``--config``),
-    a missing file is a hard error (``sys.exit(1)``).  When ``False``
+    a missing file raises ``FileNotFoundError``.  When ``False``
     (default path from argparse), a missing file silently falls back
     to built-in defaults.
-
-    **Requirement 3**: if the config file does not exist or cannot be
-    parsed, the script exits with an error.
 
     Args:
         config_path: Path to the YAML config file, or ``None`` for defaults.
@@ -66,6 +62,10 @@ def load_config(config_path: Path | None, *, explicit: bool = True) -> Config:
 
     Returns:
         Populated ``Config`` instance.
+
+    Raises:
+        FileNotFoundError: If the file does not exist and *explicit* is True.
+        ValueError: If the file cannot be parsed (YAML syntax error, etc.).
     """
     if config_path is None:
         return Config()
@@ -74,21 +74,15 @@ def load_config(config_path: Path | None, *, explicit: bool = True) -> Config:
     if not config_path.exists():
         if not explicit:
             return Config()
-        print(
-            f"ERROR: config file not found: {config_path}",
-            file=sys.stderr,
-        )
-        sys.exit(1)
+        msg = f"config file not found: {config_path}"
+        raise FileNotFoundError(msg)
 
     try:
         with config_path.open(encoding="utf-8") as f:
             raw: dict[str, Any] = yaml.safe_load(f) or {}
     except (yaml.YAMLError, OSError) as exc:
-        print(
-            f"ERROR: cannot parse config file {config_path}: {exc}",
-            file=sys.stderr,
-        )
-        sys.exit(1)
+        msg = f"cannot parse config file {config_path}: {exc}"
+        raise ValueError(msg) from exc
 
     return Config(
         log_dir=Path(raw["LOG_DIR"]) if "LOG_DIR" in raw else _DEFAULT_LOG_DIR,

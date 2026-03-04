@@ -53,3 +53,22 @@ class TestConfig:
         config = Config()
         with pytest.raises(AttributeError):
             config.report_size = 999  # type: ignore[misc]
+
+    def test_missing_file_raises(self, tmp_path: Path) -> None:
+        """Explicit load of a missing file raises FileNotFoundError."""
+        missing = tmp_path / "nope.yaml"
+        with pytest.raises(FileNotFoundError, match="config file not found"):
+            load_config(missing, explicit=True)
+
+    def test_invalid_yaml_raises(self, tmp_path: Path) -> None:
+        """A YAML file with invalid syntax raises ValueError."""
+        bad = tmp_path / "bad.yaml"
+        bad.write_text("{{{invalid", encoding="utf-8")
+        with pytest.raises(ValueError, match="cannot parse config file"):
+            load_config(bad)
+
+    def test_missing_default_falls_back(self, tmp_path: Path) -> None:
+        """Non-explicit load of missing file silently uses defaults."""
+        missing = tmp_path / "nope.yaml"
+        config = load_config(missing, explicit=False)
+        assert config == Config()
