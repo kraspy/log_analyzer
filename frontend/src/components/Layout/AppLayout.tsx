@@ -71,9 +71,11 @@ export function AppLayout() {
                 height: 64,
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center',
+                justifyContent: showFull ? 'flex-start' : 'center',
+                paddingLeft: showFull ? 20 : 0,
+                gap: 10,
                 fontWeight: 700,
-                fontSize: showFull ? 18 : 14,
+                fontSize: 18,
                 color: token.colorPrimary,
                 whiteSpace: 'nowrap',
                 overflow: 'hidden',
@@ -81,7 +83,16 @@ export function AppLayout() {
                 borderBottom: `1px solid ${token.colorBorderSecondary}`,
             }}
         >
-            {showFull ? '📊 LOG Analyzer' : '📊'}
+            <img
+                src="/logo.png"
+                alt="LOG Analyzer"
+                style={{
+                    width: showFull ? 32 : 24,
+                    height: showFull ? 32 : 24,
+                    transition: 'all 0.2s',
+                }}
+            />
+            {showFull && <span>LOG Analyzer</span>}
         </div>
     );
 

@@ -164,7 +164,7 @@ def _run(config: Config) -> int:
     if log_info is None:
         # Requirement 1: "an empty directory is possible, this is NOT an error"
         log.info("no_logs_found", log_dir=str(config.log_dir))
-        return
+        return 0
 
     log.info(
         "log_found",
@@ -178,7 +178,7 @@ def _run(config: Config) -> int:
 
     if report_path.exists():
         log.info("report_already_exists", path=str(report_path))
-        return
+        return 0
 
     # ── 3. Parse via generator (yield, O(1) memory) ─────────
     line_parser = CombinedLogParser()
